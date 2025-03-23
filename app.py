@@ -4,6 +4,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from urllib.parse import urljoin
 import requests
 from flask import Response, request
+import os
 
 app = Flask(__name__)
 CORS(app)
@@ -25,3 +26,6 @@ def stream(path):
         return Response(r.iter_content(chunk_size=1024), content_type=r.headers['Content-Type'])
     except Exception as e:
         return f"Erro ao acessar rádio: {e}", 500
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
