@@ -22,13 +22,20 @@ def stream():
         print("🔁 Conectando ao servidor Shoutcast...")
         conn = http.client.HTTPConnection(RADIO_HOST, RADIO_PORT, timeout=10)
         conn.request("GET", RADIO_PATH, headers={"User-Agent": request.headers.get("User-Agent", "")})
-        resp = conn.getresponse()
+        resp = conn.sock.makefile("rb")
 
-        if resp.status != 200 and resp.reason != "OK":
-            return f"Erro ao acessar rádio: {resp.status} {resp.reason}", 500
+        def generate():
+            try:
+                while True:
+                    chunk = resp.read(1024)
+                    if not chunk:
+                        break
+                    yield chunk
+            except Exception as e:
+                print("❌ Erro durante o stream:", e)
 
-        print("✅ Stream recebido com sucesso")
-        return Response(resp, content_type=resp.getheader("Content-Type"))
+        print("✅ Stream conectado. Enviando áudio ao cliente.")
+        return Response(generate(), content_type="audio/mpeg")
 
     except Exception as e:
         print("❌ Erro ao acessar rádio:", e)
