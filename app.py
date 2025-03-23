@@ -1,35 +1,35 @@
 from flask import Flask, Response, request
 from flask_cors import CORS
-from werkzeug.middleware.proxy_fix import ProxyFix
-import socket
+from urllib.parse import urljoin
+import urllib3
+import os
 
 app = Flask(__name__)
 CORS(app)
-app.wsgi_app = ProxyFix(app.wsgi_app)
 
-RADIO_HOST = '82.145.41.50'
-RADIO_PORT = 7005
+RADIO_HOST = 'http://82.145.41.50:7005/'
+
+http = urllib3.PoolManager()
 
 @app.route('/')
 def index():
-    return '🎧 Proxy de rádio online com suporte a ICY está ativo!'
+    return '🎧 Proxy de rádio online está ativo!'
 
-@app.route('/stream')
-def stream():
+@app.route('/stream/<path:path>')
+def stream(path):
+    proxied_url = urljoin(RADIO_HOST, path)
+    headers = {
+        'User-Agent': request.headers.get('User-Agent', 'Mozilla/5.0'),
+        'Icy-MetaData': '1',
+    }
+
     try:
-        # Conexão bruta com socket para lidar com ICY
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect((RADIO_HOST, RADIO_PORT))
-        sock.sendall(b"GET /;stream.mp3 HTTP/1.0\r\nUser-Agent: VLC/3.0.0\r\n\r\n")
-
-        def generate():
-            while True:
-                data = sock.recv(1024)
-                if not data:
-                    break
-                yield data
-
-        return Response(generate(), mimetype="audio/mpeg")
-
+        r = http.request('GET', proxied_url, headers=headers, preload_content=False, timeout=10)
+        return Response(r.stream(), content_type=r.headers.get('Content-Type', 'audio/mpeg'))
     except Exception as e:
+        print(f"Erro ao acessar rádio: {e}")
         return f"Erro ao acessar rádio: {e}", 500
+
+if __name__ == '__main__':
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
