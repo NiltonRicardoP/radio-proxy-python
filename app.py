@@ -35,7 +35,14 @@ def stream():
                 print("❌ Erro durante o stream:", e)
 
         print("✅ Stream conectado. Enviando áudio ao cliente.")
-        return Response(generate(), content_type="audio/mpeg")
+        return Response(
+            generate(),
+            content_type="audio/mpeg",
+            headers={
+                "Transfer-Encoding": "chunked",
+                "Connection": "keep-alive"
+            }
+        )
 
     except Exception as e:
         print("❌ Erro ao acessar rádio:", e)
