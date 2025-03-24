@@ -1,7 +1,7 @@
 from flask import Flask, Response, request
 from flask_cors import CORS
 from werkzeug.middleware.proxy_fix import ProxyFix
-import requests
+import urllib3
 import os
 
 app = Flask(__name__)
@@ -12,30 +12,31 @@ RADIO_URL = "http://82.145.41.50:7005/;stream.mp3"
 
 @app.route("/")
 def index():
-    return "🎧 Proxy de rádio online está ativo!"
+    return "🎧 Proxy de rádio online com urllib3 está ativo!"
 
 @app.route("/stream")
 def stream():
     try:
-        print("🔁 Conectando ao servidor Shoutcast...")
-        headers = {
-            "User-Agent": request.headers.get("User-Agent", "Mozilla/5.0"),
-            "Icy-MetaData": "1"  # Solicita os metadados ICY (opcional)
-        }
+        print("🔁 Conectando ao servidor Shoutcast com urllib3...")
+        http = urllib3.PoolManager(headers={"User-Agent": request.headers.get("User-Agent", "")})
+        resp = http.request("GET", RADIO_URL, preload_content=False)
 
-        r = requests.get(RADIO_URL, headers=headers, stream=True, timeout=10)
-
-        # Se ICY for retornado como "status", requests ainda aceita, mas o conteúdo precisa ser repassado diretamente
         def generate():
             try:
-                for chunk in r.iter_content(chunk_size=1024):
-                    if chunk:
-                        yield chunk
+                for chunk in resp.stream(1024):
+                    yield chunk
             except Exception as e:
                 print("❌ Erro durante o stream:", e)
 
-        print("✅ Stream conectado. Enviando áudio ao cliente.")
-        return Response(generate(), content_type="audio/mpeg")
+        print("✅ Stream conectado com sucesso!")
+        return Response(
+            generate(),
+            content_type="audio/mpeg",
+            headers={
+                "Transfer-Encoding": "chunked",
+                "Connection": "keep-alive"
+            }
+        )
 
     except Exception as e:
         print("❌ Erro ao acessar rádio:", e)
