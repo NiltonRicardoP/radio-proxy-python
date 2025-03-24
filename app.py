@@ -1,46 +1,54 @@
 from flask import Flask, Response, request
 from flask_cors import CORS
-from werkzeug.middleware.proxy_fix import ProxyFix
-import urllib3
+import socket
 import os
 
 app = Flask(__name__)
 CORS(app)
-app.wsgi_app = ProxyFix(app.wsgi_app)
 
-RADIO_URL = "http://82.145.41.50:7005/;stream.mp3"
+RADIO_HOST = "82.145.41.50"
+RADIO_PORT = 7005
+RADIO_PATH = "/;stream.mp3"
 
 @app.route("/")
 def index():
-    return "🎧 Proxy de rádio online com urllib3 está ativo!"
+    return "🎧 Proxy de rádio socket ativo!"
 
 @app.route("/stream")
 def stream():
-    try:
-        print("🔁 Conectando ao servidor Shoutcast com urllib3...")
-        http = urllib3.PoolManager(headers={"User-Agent": request.headers.get("User-Agent", "")})
-        resp = http.request("GET", RADIO_URL, preload_content=False)
+    def generate():
+        try:
+            print("🔁 Abrindo conexão com o servidor Shoutcast...")
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.connect((RADIO_HOST, RADIO_PORT))
 
-        def generate():
-            try:
-                for chunk in resp.stream(1024):
-                    yield chunk
-            except Exception as e:
-                print("❌ Erro durante o stream:", e)
+            headers = (
+                f"GET {RADIO_PATH} HTTP/1.0\r\n"
+                f"Host: {RADIO_HOST}\r\n"
+                f"User-Agent: {request.headers.get('User-Agent', 'PythonProxy')}\r\n"
+                f"Icy-MetaData: 1\r\n"
+                f"Connection: close\r\n"
+                f"\r\n"
+            )
+            s.sendall(headers.encode())
 
-        print("✅ Stream conectado com sucesso!")
-        return Response(
-            generate(),
-            content_type="audio/mpeg",
-            headers={
-                "Transfer-Encoding": "chunked",
-                "Connection": "keep-alive"
-            }
-        )
+            # Ignorar cabeçalhos (terminam em \r\n\r\n)
+            buffer = b""
+            while b"\r\n\r\n" not in buffer:
+                buffer += s.recv(1)
 
-    except Exception as e:
-        print("❌ Erro ao acessar rádio:", e)
-        return f"Erro ao acessar rádio: {e}", 500
+            print("✅ Cabeçalho ICY recebido. Transmitindo áudio...")
+
+            while True:
+                chunk = s.recv(1024)
+                if not chunk:
+                    break
+                yield chunk
+        except Exception as e:
+            print("❌ Erro no stream:", e)
+            yield b''
+
+    return Response(generate(), content_type="audio/mpeg")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
