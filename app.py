@@ -53,43 +53,28 @@ def stream():
     
 @app.route('/currentsong')
 def currentsong():
-    import socket
+    import requests
     try:
-        host = '82.145.41.50'
-        port = 7005
-        path = '/7.html'
+        response = requests.get("http://82.145.41.50:7005/7.html", timeout=5)
+        data = response.text
 
-        # Conectar ao servidor
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(5)
-        s.connect((host, port))
-        s.sendall(f"GET {path} HTTP/1.0\r\nUser-Agent: RadioProxy\r\n\r\n".encode())
+        # extrai o conteúdo entre <body> e </body>
+        body = data.split('<body>')[1].split('</body>')[0]
 
-        # Recebe resposta
-        response = b""
-        while True:
-            data = s.recv(1024)
-            if not data:
-                break
-            response += data
-        s.close()
+        # separa os elementos por vírgula
+        elements = body.split(',')
 
-        # Ajusta o cabeçalho ICY para HTTP padrão (se necessário)
-        response = response.replace(b'ICY 200 OK', b'HTTP/1.1 200 OK')
-
-        # Separa cabeçalhos e corpo da resposta
-        headers, body = response.split(b'\r\n\r\n', 1)
-
-        # Decodifica o corpo para texto e extrai a música atual
-        body_text = body.decode('utf-8', errors='ignore')
-
-        # Extrai música atual da resposta original
-        current_song = body_text.split(',')[6].split('</body>')[0]
+        if len(elements) > 6:
+            current_song = elements[6].strip()
+        else:
+            current_song = "Música indisponível no momento"
 
         return {"current_song": current_song}, 200
+
     except Exception as e:
         print("Erro ao acessar rádio:", e)
         return {"error": f"Erro: {e}"}, 500
+
 
 
 if __name__ == '__main__':
