@@ -54,7 +54,6 @@ def stream():
 @app.route('/currentsong')
 def currentsong():
     try:
-        # conexão socket direta
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.settimeout(5)
         s.connect((RADIO_HOST, RADIO_PORT))
@@ -71,29 +70,33 @@ def currentsong():
         
         s.close()
 
-        # Trata o retorno "ICY" substituindo por HTTP/1.1
+        # Trata o retorno "ICY"
         if response.startswith(b'ICY'):
             response = response.replace(b'ICY', b'HTTP/1.1', 1)
 
-        # Decodifica e separa o corpo da resposta
+        # Decodifica e separa o corpo da resposta com tolerância a caracteres especiais
         response_text = response.decode('utf-8', errors='ignore')
-        body = response_text.split('\r\n\r\n')[1]
+        
+        # Garante extração correta independentemente do formato
+        body_start = response_text.find('<body>')
+        body_end = response_text.find('</body>')
 
-        # Extrai a música atual
-        elements = body.split(',')
+        if body_start != -1 and body_end != -1:
+            body = response_text[body_start + 6:body_end].strip()
+            elements = body.split(',')
 
-        if len(elements) > 6:
-            current_song = elements[6].strip()
+            if len(elements) >= 7:
+                current_song = elements[6].strip()
+            else:
+                current_song = "Música indisponível no momento"
         else:
-            current_song = "Música indisponível no momento"
+            current_song = "Formato inesperado da resposta"
 
         return {"current_song": current_song}, 200
 
     except Exception as e:
         print("Erro ao acessar rádio:", e)
         return {"error": f"Erro: {e}"}, 500
-
-
 
 
 if __name__ == '__main__':
