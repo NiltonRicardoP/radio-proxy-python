@@ -50,6 +50,18 @@ def stream():
     except Exception as e:
         print("❌ Erro ao acessar rádio:", e)
         return f"Erro ao acessar rádio: {e}", 500
+    
+@app.route('/currentsong')
+def currentsong():
+    import requests
+    try:
+        response = requests.get("http://82.145.41.50:7005/7.html", timeout=5)
+        data = response.text
+        current_song = data.split(',')[6].split('</body>')[0]
+        return current_song, 200
+    except Exception as e:
+        return f"Erro: {e}", 500
+
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
