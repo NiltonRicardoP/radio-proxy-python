@@ -53,15 +53,33 @@ def stream():
     
 @app.route('/currentsong')
 def currentsong():
-    import requests
     try:
-        response = requests.get("http://82.145.41.50:7005/7.html", timeout=5)
-        data = response.text
+        # conexão socket direta
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(5)
+        s.connect((RADIO_HOST, RADIO_PORT))
+        
+        request = "GET /7.html HTTP/1.0\r\nUser-Agent: RadioProxy\r\n\r\n"
+        s.sendall(request.encode())
 
-        # extrai o conteúdo entre <body> e </body>
-        body = data.split('<body>')[1].split('</body>')[0]
+        response = b""
+        while True:
+            chunk = s.recv(1024)
+            if not chunk:
+                break
+            response += chunk
+        
+        s.close()
 
-        # separa os elementos por vírgula
+        # Trata o retorno "ICY" substituindo por HTTP/1.1
+        if response.startswith(b'ICY'):
+            response = response.replace(b'ICY', b'HTTP/1.1', 1)
+
+        # Decodifica e separa o corpo da resposta
+        response_text = response.decode('utf-8', errors='ignore')
+        body = response_text.split('\r\n\r\n')[1]
+
+        # Extrai a música atual
         elements = body.split(',')
 
         if len(elements) > 6:
@@ -74,6 +92,7 @@ def currentsong():
     except Exception as e:
         print("Erro ao acessar rádio:", e)
         return {"error": f"Erro: {e}"}, 500
+
 
 
 
