@@ -55,10 +55,14 @@ def stream():
 @app.route("/currentsong")
 def get_current_song_xml():
     try:
-        url = "http://82.145.41.50:7005/admin.cgi?pass=rp15121722dj&mode=viewxml"
-        response = requests.get(url)
+        url = "http://uk7freenew.listen2myradio.com:7005/admin.cgi?pass=rp15121722dj&mode=viewxml"
+        headers = {
+            "User-Agent": "Mozilla/5.0"
+        }
+        response = requests.get(url, headers=headers, timeout=5)
+
         if response.status_code != 200:
-            return {"current_song": "Erro"}, 500
+            return {"current_song": "Erro ao acessar XML"}, 500
         
         from xml.etree import ElementTree as ET
         root = ET.fromstring(response.content)
@@ -67,7 +71,6 @@ def get_current_song_xml():
 
     except Exception as e:
         return {"error": str(e)}, 500
-
 
 
 if __name__ == '__main__':
