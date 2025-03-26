@@ -3,6 +3,7 @@ from flask_cors import CORS
 from werkzeug.middleware.proxy_fix import ProxyFix
 import socket
 import os
+import requests
 
 app = Flask(__name__)
 CORS(app)
@@ -51,45 +52,37 @@ def stream():
         print("❌ Erro ao acessar rádio:", e)
         return f"Erro ao acessar rádio: {e}", 500
     
-@app.route('/currentsong')
-def currentsong():
+@app.route("/currentsong")
+def get_current_song():
     try:
-        import socket
+        url = "http://82.145.41.50:7005/7.html"
+        headers = {
+            "User-Agent": "RadioProxy"
+        }
+        response = requests.get(url, headers=headers, timeout=5)
 
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(5)
-        s.connect((RADIO_HOST, RADIO_PORT))
+        if response.status_code != 200:
+            return {"current_song": "Erro ao acessar rádio"}, 500
 
-        request = "GET /7.html HTTP/1.0\r\nUser-Agent: RadioProxy\r\n\r\n"
-        s.sendall(request.encode())
+        text = response.text
+        print("🔍 Conteúdo bruto:", text)
 
-        response = b""
-        while True:
-            chunk = s.recv(1024)
-            if not chunk:
-                break
-            response += chunk
+        # Tenta achar algo como "Survivor - Burning Heart"
+        match = re.search(r",([^,]+)\s*-\s*([^,]+)\s*\((Video)?\)", text)
+        if match:
+            artist = match.group(1).strip()
+            title = match.group(2).strip()
+            return {"current_song": f"{artist} - {title}"}, 200
 
-        s.close()
-
-        if response.startswith(b'ICY'):
-            response = response.replace(b'ICY', b'HTTP/1.1', 1)
-
-        decoded = response.decode('utf-8', errors='ignore')
-
-        print("🔎 Resposta decodificada:\n", decoded)
-
-        # Busca linha com dados de música
-        for line in decoded.splitlines()[::-1]:
-            print("🧪 Linha analisada:", line)
-            if ',' in line:
-                parts = line.strip().split(',')
-                print("📦 Campos:", parts)
-                if len(parts) >= 7:
-                    return {"current_song": parts[6].strip()}, 200
-                break
+        # Alternativa baseada no exemplo do 7.html
+        parts = text.split(',')
+        if len(parts) >= 7:
+            return {"current_song": parts[6].strip()}, 200
 
         return {"current_song": "Dados insuficientes"}, 200
+
+    except Exception as e:
+        return {"error": str(e)}, 500
 
     except Exception as e:
         print("❌ Erro ao acessar rádio:", e)
