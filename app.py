@@ -72,17 +72,19 @@ def currentsong():
 
         s.close()
 
-        # Substitui ICY por HTTP para compatibilidade
         if response.startswith(b'ICY'):
             response = response.replace(b'ICY', b'HTTP/1.1', 1)
 
-        # Decodifica a resposta
         decoded = response.decode('utf-8', errors='ignore')
 
-        # Procura a linha com dados da música (última com vírgulas)
+        print("🔎 Resposta decodificada:\n", decoded)
+
+        # Busca linha com dados de música
         for line in decoded.splitlines()[::-1]:
+            print("🧪 Linha analisada:", line)
             if ',' in line:
                 parts = line.strip().split(',')
+                print("📦 Campos:", parts)
                 if len(parts) >= 7:
                     return {"current_song": parts[6].strip()}, 200
                 break
@@ -92,6 +94,7 @@ def currentsong():
     except Exception as e:
         print("❌ Erro ao acessar rádio:", e)
         return {"error": str(e)}, 500
+
 
 
 if __name__ == '__main__':
