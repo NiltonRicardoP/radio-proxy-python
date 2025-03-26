@@ -53,39 +53,19 @@ def stream():
         return f"Erro ao acessar rádio: {e}", 500
     
 @app.route("/currentsong")
-def get_current_song():
+def get_current_song_xml():
     try:
-        url = "http://82.145.41.50:7005/7.html"
-        headers = {
-            "User-Agent": "RadioProxy"
-        }
-        response = requests.get(url, headers=headers, timeout=5)
-
+        url = "http://82.145.41.50:7005/admin.cgi?pass=rp15121722dj&mode=viewxml"
+        response = requests.get(url)
         if response.status_code != 200:
-            return {"current_song": "Erro ao acessar rádio"}, 500
-
-        text = response.text
-        print("🔍 Conteúdo bruto:", text)
-
-        # Tenta achar algo como "Survivor - Burning Heart"
-        match = re.search(r",([^,]+)\s*-\s*([^,]+)\s*\((Video)?\)", text)
-        if match:
-            artist = match.group(1).strip()
-            title = match.group(2).strip()
-            return {"current_song": f"{artist} - {title}"}, 200
-
-        # Alternativa baseada no exemplo do 7.html
-        parts = text.split(',')
-        if len(parts) >= 7:
-            return {"current_song": parts[6].strip()}, 200
-
-        return {"current_song": "Dados insuficientes"}, 200
+            return {"current_song": "Erro"}, 500
+        
+        from xml.etree import ElementTree as ET
+        root = ET.fromstring(response.content)
+        song = root.findtext("SONGTITLE")
+        return {"current_song": song}, 200
 
     except Exception as e:
-        return {"error": str(e)}, 500
-
-    except Exception as e:
-        print("❌ Erro ao acessar rádio:", e)
         return {"error": str(e)}, 500
 
 
