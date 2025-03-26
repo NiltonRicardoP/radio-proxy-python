@@ -60,48 +60,43 @@ def currentsong():
         s.settimeout(5)
         s.connect((RADIO_HOST, RADIO_PORT))
 
+        # Envia requisição para 7.html
         request = "GET /7.html HTTP/1.0\r\nUser-Agent: RadioProxy\r\n\r\n"
         s.sendall(request.encode())
 
+        # Recebe a resposta completa
         response = b""
         while True:
             chunk = s.recv(1024)
             if not chunk:
                 break
             response += chunk
+
         s.close()
 
-        # Substitui ICY por HTTP para evitar erro no decode
+        # Corrige ICY header se necessário
         if response.startswith(b'ICY'):
             response = response.replace(b'ICY', b'HTTP/1.1', 1)
 
-        # Decodifica com tolerância a erros
-        response_text = response.decode('utf-8', errors='ignore')
+        # Extrai o conteúdo entre <body> e </body>
+        text = response.decode('utf-8', errors='ignore')
+        start = text.find("<body>")
+        end = text.find("</body>")
 
-        # Primeiro tenta localizar <body>...</body>
-        if "<body>" in response_text and "</body>" in response_text:
-            body = response_text.split("<body>")[1].split("</body>")[0].strip()
+        if start != -1 and end != -1:
+            content = text[start + 6:end].strip()
+            parts = content.split(',')
+            if len(parts) >= 7:
+                return {"current_song": parts[6].strip()}
+            else:
+                return {"current_song": "Dados insuficientes"}, 200
         else:
-            # Se não tiver <body>, tenta encontrar diretamente a linha com os dados
-            lines = response_text.splitlines()
-            # Pega a última linha não vazia como fallback
-            body = ""
-            for line in reversed(lines):
-                if line.strip():
-                    body = line.strip()
-                    break
-
-        parts = body.split(',')
-        if len(parts) >= 7:
-            current_song = parts[6].strip()
-        else:
-            current_song = f"Dados insuficientes: {body}"
-
-        return {"current_song": current_song}, 200
+            return {"current_song": "Formato inesperado"}, 200
 
     except Exception as e:
-        print("❌ Erro ao buscar música atual:", e)
+        print("❌ Erro ao acessar rádio:", e)
         return {"error": str(e)}, 500
+
 
 
 
