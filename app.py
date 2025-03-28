@@ -22,7 +22,7 @@ def stream():
     try:
         print("🔁 Conectando ao servidor Shoutcast...")
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(60)  # Aumentado para 60 segundos
+        s.settimeout(10)
         s.connect((RADIO_HOST, RADIO_PORT))
         s.sendall(f"GET {RADIO_PATH} HTTP/1.0\r\nUser-Agent: RadioProxy\r\n\r\n".encode())
 
@@ -46,15 +46,7 @@ def stream():
                 yield chunk
 
         print("✅ Streaming iniciado")
-        return Response(
-            generate(),
-            content_type="audio/mpeg",
-            headers={
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-                "Transfer-Encoding": "chunked"
-            }
-        )
+        return Response(generate(), content_type="audio/mpeg")
 
     except Exception as e:
         print("❌ Erro ao acessar rádio:", e)
@@ -79,6 +71,7 @@ def get_current_song_xml():
 
     except Exception as e:
         return {"error": str(e)}, 500
+
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
