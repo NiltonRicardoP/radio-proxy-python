@@ -9,8 +9,8 @@ app = Flask(__name__)
 CORS(app)
 app.wsgi_app = ProxyFix(app.wsgi_app)
 
-RADIO_HOST = '82.145.41.50'
-RADIO_PORT = 7005
+RADIO_HOST = '78.129.132.7'
+RADIO_PORT = 4871
 RADIO_PATH = '/;stream.mp3'
 
 @app.route('/')
