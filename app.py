@@ -55,7 +55,7 @@ def stream():
 @app.route("/currentsong")
 def get_current_song_xml():
     try:
-        url = "http://uk7freenew.listen2myradio.com:7005/admin.cgi?pass=rp15121722dj&mode=viewxml"
+        url = "http://uk5freenew.listen2myradio.com:4871/admin.cgi?pass=rp15121722dj&mode=viewxml"
         headers = {
             "User-Agent": "Mozilla/5.0"
         }
