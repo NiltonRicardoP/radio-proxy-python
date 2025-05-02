@@ -20,37 +20,47 @@ def index():
 @app.route('/stream')
 def stream():
     try:
-        print("🔁 Conectando ao servidor Shoutcast...")
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(10)
-        s.connect((RADIO_HOST, RADIO_PORT))
-        s.sendall(f"GET {RADIO_PATH} HTTP/1.0\r\nUser-Agent: RadioProxy\r\n\r\n".encode())
+        print("🔁 Iniciando proxy para o servidor Shoutcast...")
 
-        # Lê o cabeçalho
-        buffer = b""
-        while b"\r\n\r\n" not in buffer:
-            buffer += s.recv(1)
-
-        header, rest = buffer.split(b"\r\n\r\n", 1)
-
-        # Corrige o cabeçalho ICY para HTTP/1.1
-        if header.startswith(b"ICY"):
-            header = header.replace(b"ICY", b"HTTP/1.1", 1)
+        url = f"http://{RADIO_HOST}:{RADIO_PORT}{RADIO_PATH}"
+        headers = {
+            "User-Agent": "RadioProxy"
+        }
 
         def generate():
-            yield header + b"\r\n\r\n" + rest
-            while True:
-                chunk = s.recv(1024)
-                if not chunk:
-                    break
-                yield chunk
+            retry_count = 0
+            max_retries = 5
 
-        print("✅ Streaming iniciado")
+            while retry_count < max_retries:
+                try:
+                    with requests.get(url, headers=headers, stream=True, timeout=15) as r:
+                        if r.status_code != 200:
+                            print(f"⚠️ Código de status inesperado: {r.status_code}")
+                            retry_count += 1
+                            continue
+
+                        print("✅ Streaming iniciado com sucesso")
+                        for chunk in r.iter_content(chunk_size=2048):
+                            if chunk:
+                                yield chunk
+                            else:
+                                print("⚠️ Chunk vazio, pode ser corte de stream")
+                        break  # finalizou sem erro? então sair
+
+                except requests.exceptions.RequestException as err:
+                    print(f"❌ Tentativa {retry_count+1} falhou: {err}")
+                    retry_count += 1
+                    time.sleep(2)
+
+            print("🚫 Falha após múltiplas tentativas.")
+            yield b''
+
         return Response(generate(), content_type="audio/mpeg")
 
     except Exception as e:
-        print("❌ Erro ao acessar rádio:", e)
+        print(f"❌ Erro ao configurar stream: {e}")
         return f"Erro ao acessar rádio: {e}", 500
+
     
 @app.route("/currentsong")
 def get_current_song_xml():
